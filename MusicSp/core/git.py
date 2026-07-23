@@ -37,35 +37,48 @@ def git():
         UPSTREAM_REPO = f"https://{GIT_USERNAME}:{config.GIT_TOKEN}@{TEMP_REPO}"
     else:
         UPSTREAM_REPO = config.UPSTREAM_REPO
+
+    # ✅ Heroku Fix: git binary not available on Heroku dynos, skip safely
     try:
         repo = Repo()
         LOGGER(__name__).info(f"Git Client Found [VPS DEPLOYER]")
     except GitCommandError:
         LOGGER(__name__).info(f"Invalid Git Command")
     except InvalidGitRepositoryError:
-        repo = Repo.init()
-        if "origin" in repo.remotes:
-            origin = repo.remote("origin")
-        else:
-            origin = repo.create_remote("origin", UPSTREAM_REPO)
-        origin.fetch()
-        repo.create_head(
-            config.UPSTREAM_BRANCH,
-            origin.refs[config.UPSTREAM_BRANCH],
-        )
-        repo.heads[config.UPSTREAM_BRANCH].set_tracking_branch(
-            origin.refs[config.UPSTREAM_BRANCH]
-        )
-        repo.heads[config.UPSTREAM_BRANCH].checkout(True)
         try:
-            repo.create_remote("origin", config.UPSTREAM_REPO)
-        except BaseException:
-            pass
-        nrs = repo.remote("origin")
-        nrs.fetch(config.UPSTREAM_BRANCH)
-        try:
-            nrs.pull(config.UPSTREAM_BRANCH)
-        except GitCommandError:
-            repo.git.reset("--hard", "FETCH_HEAD")
-        install_req("pip3 install --no-cache-dir -r requirements.txt")
-        LOGGER(__name__).info(f"Fetching updates from upstream repository...")
+            repo = Repo.init()
+            if "origin" in repo.remotes:
+                origin = repo.remote("origin")
+            else:
+                origin = repo.create_remote("origin", UPSTREAM_REPO)
+            origin.fetch()
+            repo.create_head(
+                config.UPSTREAM_BRANCH,
+                origin.refs[config.UPSTREAM_BRANCH],
+            )
+            repo.heads[config.UPSTREAM_BRANCH].set_tracking_branch(
+                origin.refs[config.UPSTREAM_BRANCH]
+            )
+            repo.heads[config.UPSTREAM_BRANCH].checkout(True)
+            try:
+                repo.create_remote("origin", config.UPSTREAM_REPO)
+            except BaseException:
+                pass
+            nrs = repo.remote("origin")
+            nrs.fetch(config.UPSTREAM_BRANCH)
+            try:
+                nrs.pull(config.UPSTREAM_BRANCH)
+            except GitCommandError:
+                repo.git.reset("--hard", "FETCH_HEAD")
+            install_req("pip3 install --no-cache-dir -r requirements.txt")
+            LOGGER(__name__).info(f"Fetching updates from upstream repository...")
+        except Exception as e:
+            # ✅ Heroku: git binary not found — skip git operations silently
+            LOGGER(__name__).warning(
+                f"Git not available in this environment (Heroku/Cloud). Skipping git operations. Reason: {type(e).__name__}"
+            )
+    except Exception as e:
+        # ✅ Catch-all: any other git related error (e.g. GitCommandNotFound on Heroku)
+        LOGGER(__name__).warning(
+            f"Git operation skipped. Reason: {type(e).__name__} — {e}"
+        )
