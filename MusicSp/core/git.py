@@ -30,6 +30,17 @@ def install_req(cmd: str) -> Tuple[str, str, int, int]:
 
 
 def git():
+    import shutil
+
+    # ✅ Check if git binary exists BEFORE doing anything
+    # On Heroku, git is NOT installed — skip all git operations safely
+    if not shutil.which("git"):
+        LOGGER(__name__).warning(
+            "⚠️ Git binary not found in this environment (Heroku/Cloud). "
+            "Skipping git operations — bot will run normally."
+        )
+        return
+
     REPO_LINK = config.UPSTREAM_REPO
     if config.GIT_TOKEN:
         GIT_USERNAME = REPO_LINK.split("com/")[1].split("/")[0]
@@ -38,7 +49,6 @@ def git():
     else:
         UPSTREAM_REPO = config.UPSTREAM_REPO
 
-    # ✅ Heroku Fix: git binary not available on Heroku dynos, skip safely
     try:
         repo = Repo()
         LOGGER(__name__).info(f"Git Client Found [VPS DEPLOYER]")
@@ -73,12 +83,11 @@ def git():
             install_req("pip3 install --no-cache-dir -r requirements.txt")
             LOGGER(__name__).info(f"Fetching updates from upstream repository...")
         except Exception as e:
-            # ✅ Heroku: git binary not found — skip git operations silently
             LOGGER(__name__).warning(
-                f"Git not available in this environment (Heroku/Cloud). Skipping git operations. Reason: {type(e).__name__}"
+                f"Git operations skipped. Reason: {type(e).__name__} — {e}"
             )
     except Exception as e:
-        # ✅ Catch-all: any other git related error (e.g. GitCommandNotFound on Heroku)
         LOGGER(__name__).warning(
             f"Git operation skipped. Reason: {type(e).__name__} — {e}"
         )
+
