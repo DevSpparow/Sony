@@ -1,0 +1,12 @@
+{
+  "name": "sony-music-bot",
+  "version": "1.0.0",
+  "description": "Sony Music Bot - Telegram Music Player",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "echo 'Node.js runtime for pytgcalls'"
+  },
+  "dependencies": {}
+}
