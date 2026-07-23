@@ -6,11 +6,6 @@ import yt_dlp
 from pyrogram.enums import MessageEntityType
 from pyrogram.types import Message
 from py_yt import VideosSearch, Playlist
-import aiohttp
-
-API_URL = os.environ.get("MusicSp_API_URL", "https://www.apisparrow.site")
-
-API_KEY = os.environ.get("MusicSp_API_KEY", " sparrownhhJUQYo5QvMnred9S2YPcEi") ## Get This API KEY FROM OWNER: @SpYtAPIBot 
 
 DOWNLOAD_DIR = "downloads"
 
@@ -21,31 +16,48 @@ def time_to_seconds(time):
 
 
 async def download_song(link: str) -> str:
+    """Download audio using yt-dlp directly — no external API needed."""
     video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
     if not video_id or len(video_id) < 3:
         return None
 
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     file_path = os.path.join(DOWNLOAD_DIR, f"{video_id}.mp3")
+
+    # Return cached file if exists
     if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
         return file_path
 
+    # Build full YouTube URL if only video ID given
+    if "youtube.com" not in link and "youtu.be" not in link:
+        link = f"https://www.youtube.com/watch?v={video_id}"
+
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "outtmpl": os.path.join(DOWNLOAD_DIR, f"{video_id}.%(ext)s"),
+        "quiet": True,
+        "no_warnings": True,
+        "postprocessors": [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "mp3",
+            "preferredquality": "192",
+        }],
+        "cookiefile": None,
+        "noplaylist": True,
+    }
+
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"{API_URL}/download",
-                params={"url": video_id, "type": "audio", "api_key": API_KEY},
-                timeout=aiohttp.ClientTimeout(total=300)
-            ) as resp:
-                if resp.status != 200:
-                    return None
-                with open(file_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(131072):
-                        f.write(chunk)
+        loop = asyncio.get_event_loop()
+        def _download():
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([link])
+
+        await loop.run_in_executor(None, _download)
+
         if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
             return file_path
         return None
-    except Exception:
+    except Exception as e:
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
@@ -55,37 +67,51 @@ async def download_song(link: str) -> str:
 
 
 async def download_video(link: str) -> str:
+    """Download video using yt-dlp directly — no external API needed."""
     video_id = link.split("v=")[-1].split("&")[0] if "v=" in link else link
     if not video_id or len(video_id) < 3:
         return None
 
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     file_path = os.path.join(DOWNLOAD_DIR, f"{video_id}.mp4")
+
+    # Return cached file if exists
     if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
         return file_path
 
+    # Build full YouTube URL if only video ID given
+    if "youtube.com" not in link and "youtu.be" not in link:
+        link = f"https://www.youtube.com/watch?v={video_id}"
+
+    ydl_opts = {
+        "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "outtmpl": os.path.join(DOWNLOAD_DIR, f"{video_id}.%(ext)s"),
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "merge_output_format": "mp4",
+    }
+
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"{API_URL}/download",
-                params={"url": video_id, "type": "video", "api_key": API_KEY},
-                timeout=aiohttp.ClientTimeout(total=600)
-            ) as resp:
-                if resp.status != 200:
-                    return None
-                with open(file_path, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(131072):
-                        f.write(chunk)
+        loop = asyncio.get_event_loop()
+        def _download():
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([link])
+
+        await loop.run_in_executor(None, _download)
+
         if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
             return file_path
         return None
-    except Exception:
+    except Exception as e:
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
             except Exception:
                 pass
         return None
+
+
 
 
 class YouTubeAPI:
