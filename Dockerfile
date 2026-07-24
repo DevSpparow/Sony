@@ -1,12 +1,15 @@
 
-FROM nikolaik/python-nodejs:python3.10-nodejs20
+FROM nikolaik/python-nodejs:python3.11-nodejs20
 
-# Update package lists and install ffmpeg
+# Install FFmpeg + required system deps
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg \
+    && apt-get install -y --no-install-recommends \
+       ffmpeg \
+       git \
+       wget \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-    
+    && rm -rf /var/lib/apt/lists/* \
+    && ffmpeg -version
 
 COPY . /app/
 WORKDIR /app/
